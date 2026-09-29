@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SafeDrive AI — Intelligent Driver Safety System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#02050f;--bg2:#060c1e;--card:#080f22;--card2:#0a1330;
+      --b:#111f3f;--bhi:#1c3d72;
+      --c:#00e5ff;--cdim:#004d66;--cglow:rgba(0,229,255,.18);
+      --g:#05f27a;--r:#ff2d55;--amb:#ffbe00;
+      --t:#c5ddf7;--tm:#3d5c85;--td:#243d5e;--w:#e8f4ff;
+      --scanline-color:rgba(0,0,0,.05);
+      --toggle-bg:rgba(0,229,255,.08);--toggle-border:var(--bhi);
+    }
+    /* ── LIGHT MODE ── */
+    html.light{
+      --bg:#f0f4fa;--bg2:#e4ecf7;--card:#ffffff;--card2:#eef3fb;
+      --b:#c5d5ea;--bhi:#8aafd4;
+      --c:#0077aa;--cdim:#3399cc;--cglow:rgba(0,119,170,.15);
+      --g:#007a3d;--r:#cc1133;--amb:#996600;
+      --t:#1a2d45;--tm:#456080;--td:#7090b0;--w:#0d1f35;
+      --scanline-color:rgba(0,0,0,.025);
+      --toggle-bg:rgba(0,119,170,.08);--toggle-border:#8aafd4;
+    }
+    html{scroll-behavior:smooth;transition:background-color .35s ease,color .35s ease}
+    html,body{background:var(--bg);color:var(--t);font-family:'DM Sans',sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+    /* Scanline overlay — isolated layer, no repaint on scroll */
+    body::after{
+      content:'';
+      position:fixed;inset:0;
+      background:repeating-linear-gradient(0deg,transparent,transparent 3px,var(--scanline-color) 3px,var(--scanline-color) 4px);
+      pointer-events:none;z-index:9999;
+      /* GPU-composited: no layout, no paint triggered by scroll */
+      will-change:transform;transform:translateZ(0);
+      isolation:isolate;
+      contain:strict;
+    }
+
+    /* REVEAL */
+    .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s cubic-bezier(.22,.68,0,1.2),transform .6s cubic-bezier(.22,.68,0,1.2);will-change:opacity,transform;contain:layout style}
+    .reveal.vis{opacity:1;transform:none;contain:none}
+    .d1{transition-delay:.06s}.d2{transition-delay:.12s}.d3{transition-delay:.18s}.d4{transition-delay:.24s}
+
+    /* NAV */
+    .land-nav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:16px 60px;border-bottom:1px solid var(--b);background:rgba(2,5,15,.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);transform:translateZ(0);contain:layout style}
+    html.light .land-nav{background:rgba(240,244,250,.88)}
+    .nav-logo{display:flex;align-items:center;gap:12px;cursor:default}
+    .nli{width:36px;height:36px;border:1.5px solid var(--c);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;animation:ipulse 3s ease-in-out infinite;transition:box-shadow .3s,transform .2s}
+    .nli:hover{box-shadow:0 0 28px rgba(0,229,255,.5);transform:scale(1.09)}
+    @keyframes ipulse{0%,100%{box-shadow:0 0 10px var(--cglow)}50%{box-shadow:0 0 26px rgba(0,229,255,.38)}}
+    .nlt{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:3px;color:var(--c)}
+    .nls{font-size:11px;letter-spacing:1.5px;color:var(--tm);font-family:'Space Mono',monospace}
+    .nav-links{display:flex;align-items:center;gap:26px}
+    .nav-link{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1.5px;color:var(--tm);text-transform:uppercase;cursor:pointer;position:relative;transition:color .25s;padding-bottom:2px}
+    .nav-link::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:1px;background:var(--c);transform:scaleX(0);transition:transform .25s ease;transform-origin:left}
+    .nav-link:hover{color:var(--c)}.nav-link:hover::after{transform:scaleX(1)}
+    .nav-right{display:flex;align-items:center;gap:10px}
+    .nbadge{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1.5px;padding:4px 10px;border-radius:4px;border:1px solid}
+    .nbadge.v{border-color:var(--bhi);color:var(--tm)}.nbadge.m{border-color:var(--cdim);color:var(--c);background:rgba(0,229,255,.06)}
+    .nav-launch{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1.5px;padding:7px 16px;border-radius:5px;border:1px solid var(--c);color:var(--c);background:rgba(0,229,255,.06);cursor:pointer;transition:background .2s,box-shadow .2s;text-transform:uppercase}
+    .nav-launch:hover{background:rgba(0,229,255,.14);box-shadow:0 0 16px rgba(0,229,255,.25)}
+
+    /* THEME TOGGLE */
+    .theme-toggle{display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:5px;border:1px solid var(--toggle-border);background:var(--toggle-bg);cursor:pointer;transition:border-color .25s,background .25s,box-shadow .25s;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1.5px;color:var(--tm);user-select:none;flex-shrink:0}
+    .theme-toggle:hover{border-color:var(--c);color:var(--c);box-shadow:0 0 14px rgba(0,229,255,.18)}
+    .tt-icon{font-size:13px;transition:transform .5s cubic-bezier(.22,.68,0,1.4);display:block}
+    .theme-toggle:hover .tt-icon{transform:rotate(25deg) scale(1.15)}
+
+    /* TICKER */
+    .ticker-bar{background:rgba(0,229,255,.03);border-bottom:1px solid var(--b);overflow:hidden;height:32px;display:flex;align-items:center}
+    .tkl{flex-shrink:0;padding:0 16px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--c);background:rgba(0,229,255,.1);border-right:1px solid var(--bhi);height:100%;display:flex;align-items:center}
+    .tkt{overflow:hidden;flex:1}
+    .tki{display:flex;animation:tscroll 36s linear infinite;will-change:transform;transform:translateZ(0)}
+    @keyframes tscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    .tki-item{flex-shrink:0;padding:0 26px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--tm);white-space:nowrap;display:flex;align-items:center;gap:10px}
+    .tki-item::before{content:'◆';color:var(--cdim);font-size:7px}
+
+    /* HERO */
+    .hero{min-height:92vh;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 60px 60px;text-align:center;overflow:hidden}
+    .hero-bg{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+    .hc{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center}
+    .h-ey{display:inline-flex;align-items:center;gap:10px;font-family:'Space Mono',monospace;font-size:12px;letter-spacing:2px;color:var(--c);padding:6px 16px;border-radius:4px;border:1px solid var(--cdim);background:rgba(0,229,255,.06);margin-bottom:40px;animation:fdown .8s ease .2s both}
+    .h-ey::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);animation:blink 1.4s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+    .h-ti{font-family:'Bebas Neue',sans-serif;font-size:clamp(68px,10vw,128px);line-height:.9;letter-spacing:4px;color:var(--w);margin-bottom:14px;animation:fdown .8s ease .35s both}
+    .h-ti .ac{color:var(--c);display:block}
+    .h-sb{font-size:16px;line-height:1.8;color:var(--tm);max-width:530px;animation:fdown .8s ease .5s both;margin-bottom:50px}
+    .h-sb strong{color:var(--t)}
+    @keyframes fdown{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:none}}
+    @keyframes fup  {from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none}}
+    .h-stats{display:flex;border:1px solid var(--bhi);border-radius:12px;overflow:hidden;margin-bottom:50px;animation:fdown .8s ease .65s both}
+    .hst{padding:18px 32px;text-align:center;border-right:1px solid var(--bhi);position:relative;cursor:default;transition:background .3s}
+    .hst:last-child{border-right:none}
+    .hst:hover{background:rgba(0,229,255,.04)}
+    .hst::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cdim),transparent);transform:scaleX(0);transition:transform .4s;transform-origin:center}
+    .hst:hover::before{transform:scaleX(1)}
+    .hst-v{font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--c);line-height:1;text-shadow:0 0 22px rgba(0,229,255,.4);transition:text-shadow .3s}
+    .hst:hover .hst-v{text-shadow:0 0 40px rgba(0,229,255,.7)}
+    .hst-l{font-size:11px;letter-spacing:1.5px;color:var(--tm);text-transform:uppercase;margin-top:4px;font-family:'Space Mono',monospace}
+    .h-ctas{display:flex;gap:14px;animation:fup .9s ease .85s both}
+    .cta-btn{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;padding:14px 32px;border-radius:8px;border:none;cursor:pointer;text-transform:uppercase;transition:box-shadow .3s,background .2s;will-change:transform}
+    .cta-btn.pri{background:var(--c);color:var(--bg);font-weight:700;box-shadow:0 0 32px rgba(0,229,255,.3)}
+    .cta-btn.pri:hover{background:#33edff;box-shadow:0 0 56px rgba(0,229,255,.65)}
+    .cta-btn.gho{background:transparent;color:var(--t);border:1px solid var(--bhi)}
+    .cta-btn.gho:hover{border-color:var(--c);color:var(--c);background:rgba(0,229,255,.06);box-shadow:0 0 20px rgba(0,229,255,.12)}
+
+    /* STATS BAR */
+    .sb{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg2)}
+    .sbi{padding:36px 20px;border-right:1px solid var(--b);border-bottom:1px solid var(--b);text-align:center;position:relative;overflow:hidden;cursor:default;transition:background .3s}
+    .sbi:last-child{border-right:none}
+    .sbi::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,rgba(0,229,255,.08) 0%,transparent 70%);opacity:0;transition:opacity .4s;pointer-events:none}
+    .sbi:hover::after{opacity:1}
+    .sbi-v{font-family:'Bebas Neue',sans-serif;font-size:50px;color:var(--w);line-height:1;transition:color .3s,text-shadow .3s}
+    .sbi:hover .sbi-v{color:var(--c);text-shadow:0 0 30px rgba(0,229,255,.5)}
+    .sbi-l{font-size:11px;letter-spacing:2px;color:var(--tm);margin-top:8px}
+    .sbi-s{font-size:11px;color:var(--td);margin-top:4px;font-family:'Space Mono',monospace}
+
+    /* SECTIONS */
+    .sec{padding:88px 60px;border-top:1px solid var(--b);content-visibility:auto;contain-intrinsic-size:0 600px}
+    .sec.bg2{background:var(--bg2)}
+    .sey{font-family:'Space Mono',monospace;font-size:12px;letter-spacing:2px;color:var(--c);margin-bottom:14px}
+    .sti{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:2px;color:var(--w);line-height:1;margin-bottom:52px}
+    .sdesc{font-size:15px;color:var(--tm);line-height:1.8;max-width:520px;margin-bottom:40px}
+
+    /* PIPELINE */
+    .pipeline{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;max-width:1040px}
+    .pipe{background:var(--card);border:1px solid var(--b);padding:30px 22px;position:relative;cursor:default;transition:transform .35s cubic-bezier(.22,.68,0,1.3),border-color .3s,background .3s,box-shadow .3s;will-change:transform}
+    .pipe:hover{border-color:var(--c);background:var(--card2);transform:translateY(-8px);box-shadow:0 16px 48px rgba(0,229,255,.1),0 0 0 1px var(--cdim)}
+    .pipe:first-child{border-radius:10px 0 0 10px}.pipe:last-child{border-radius:0 10px 10px 0}
+    .p-num{font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--bhi);line-height:1;margin-bottom:10px;transition:color .3s,opacity .3s}
+    .pipe:hover .p-num{color:var(--c);opacity:.3}
+    .p-ico{font-size:28px;margin-bottom:12px;display:block;transition:transform .35s}
+    .pipe:hover .p-ico{transform:scale(1.22) rotate(-7deg)}
+    .p-ti{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--w);margin-bottom:10px;text-transform:uppercase}
+    .p-de{font-size:12px;line-height:1.75;color:var(--tm)}
+    .p-ar{position:absolute;right:-13px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--bhi);z-index:1;transition:color .3s}
+    .pipe:hover .p-ar{color:var(--cdim)}.pipe:last-child .p-ar{display:none}
+
+    /* MODEL SECTION */
+    .model-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+    .mcard{background:var(--card);border:1px solid var(--b);border-radius:12px;padding:28px;position:relative;overflow:hidden;cursor:default;transition:transform .35s cubic-bezier(.22,.68,0,1.2),border-color .3s,box-shadow .3s;will-change:transform}
+    .mcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cdim),transparent);transform:scaleX(0);transition:transform .4s}
+    .mcard:hover{border-color:var(--bhi);transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,.4)}.mcard:hover::before{transform:scaleX(1)}
+    .mcard.full{grid-column:1/-1}
+    .mcard-t{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--td);text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--b)}
+    .mmet{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--b)}
+    .mmet:last-child{border-bottom:none}
+    .mmet-n{font-size:12px;color:var(--tm)}.mmet-v{font-family:'Space Mono',monospace;font-size:12px;color:var(--c);font-weight:700}
+    .bar-wrap{background:var(--b);border-radius:4px;height:6px;margin-top:8px;overflow:hidden}
+    .bar-fill{height:100%;border-radius:4px;transition:width 1.2s cubic-bezier(.22,.68,0,1.2)}
+    .bc{background:linear-gradient(90deg,var(--c),#33edff)}.bg{background:linear-gradient(90deg,var(--g),#33ff99)}.ba{background:linear-gradient(90deg,var(--amb),#ffdd55)}
+    .bar-lbl{display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--td);font-family:'Space Mono',monospace}
+    .arch-row{display:flex;align-items:center;gap:0;margin-top:4px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+    .arch-row::-webkit-scrollbar{display:none}
+    .arch-b{flex-shrink:0;background:var(--card2);border:1px solid var(--b);border-radius:6px;padding:8px 14px;text-align:center;transition:all .25s;cursor:default}
+    .arch-b:hover{border-color:var(--cdim);transform:translateY(-3px)}
+    .arch-l{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--c);display:block}
+    .arch-s{font-size:11px;color:var(--td);margin-top:2px}
+    .arch-arr{font-size:14px;color:var(--bhi);padding:0 8px;flex-shrink:0;align-self:center}
+
+    /* CONFUSION MATRIX */
+    .cm-wrap{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;margin-top:14px}
+    .cm-corner{}
+    .cm-hdr{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--c);text-align:center;padding:8px 4px;background:rgba(0,229,255,.04);border:1px solid var(--bhi);border-radius:4px;text-transform:uppercase}
+    .cm-side{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--c);padding:8px 10px;background:rgba(0,229,255,.04);border:1px solid var(--bhi);border-radius:4px;display:flex;align-items:center;justify-content:flex-end;text-transform:uppercase;writing-mode:horizontal-tb}
+    .cm-cell{padding:18px 10px;border-radius:6px;text-align:center;border:1px solid;transition:transform .25s}
+    .cm-cell:hover{transform:translateY(-2px)}
+    .cm-cell.tp,.cm-cell.tn{background:rgba(5,242,122,.06);border-color:rgba(5,242,122,.35)}
+    .cm-cell.fp,.cm-cell.fn{background:rgba(255,45,85,.06);border-color:rgba(255,45,85,.35)}
+    .cm-v{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:2px;color:var(--w);line-height:1}
+    .cm-cell.tp .cm-v,.cm-cell.tn .cm-v{color:var(--g)}
+    .cm-cell.fp .cm-v,.cm-cell.fn .cm-v{color:var(--r)}
+    .cm-l{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--tm);margin-top:6px;text-transform:uppercase}
+    .cm-foot{margin-top:14px;font-size:11px;color:var(--tm);text-align:center;padding-top:12px;border-top:1px solid var(--b)}
+    .cm-foot .hi{color:var(--c);font-weight:600}
+
+    /* TRAINING PIPELINE STEPS */
+    .tp-step{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--b)}
+    .tp-step:last-child{border-bottom:none}
+    .tp-n{flex-shrink:0;width:28px;height:28px;border:1px solid var(--cdim);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:10px;color:var(--c);background:rgba(0,229,255,.04)}
+    .tp-t{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1.5px;color:var(--w);text-transform:uppercase;margin-bottom:3px}
+    .tp-d{font-size:12px;color:var(--tm);line-height:1.6}
+    .tp-d .hi{color:var(--c);font-weight:600}
+
+    /* IMPACT */
+    .impact-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .icard{background:var(--card);border:1px solid var(--b);border-radius:12px;padding:30px;position:relative;overflow:hidden;cursor:default;transition:transform .35s cubic-bezier(.22,.68,0,1.2),border-color .3s,box-shadow .3s;will-change:transform}
+    .icard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cdim),transparent);transform:scaleX(0);transition:transform .4s}
+    .icard:hover{border-color:var(--bhi);transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,.4)}.icard:hover::before{transform:scaleX(1)}
+    .icard.wide{grid-column:1/-1}
+    .icard-n{font-family:'Bebas Neue',sans-serif;font-size:64px;color:var(--c);opacity:.1;position:absolute;top:14px;right:22px;pointer-events:none;line-height:1}
+    .icard-ico{font-size:32px;margin-bottom:14px;display:block;transition:transform .35s}
+    .icard:hover .icard-ico{transform:scale(1.14) rotate(-8deg)}
+    .icard-t{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--w);margin-bottom:10px;text-transform:uppercase}
+    .icard-d{font-size:13px;line-height:1.82;color:var(--tm)}
+    .hi{color:var(--c);font-weight:600}
+
+    /* TECH */
+    .tech-lay{display:flex;gap:80px;align-items:flex-start}
+    .tl{flex:1}.tr{flex:1}
+    .tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .tc{background:var(--card);border:1px solid var(--b);border-radius:10px;padding:20px;text-align:center;cursor:default;position:relative;overflow:hidden;transition:border-color .3s,transform .35s cubic-bezier(.22,.68,0,1.3),box-shadow .3s,background .3s;will-change:transform}
+    .tc::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,rgba(0,229,255,.07) 0%,transparent 70%);opacity:0;transition:opacity .3s;pointer-events:none}
+    .tc:hover{border-color:var(--c);background:rgba(0,229,255,.04);transform:translateY(-6px) scale(1.03);box-shadow:0 12px 32px rgba(0,229,255,.12)}.tc:hover::after{opacity:1}
+    .tc-ico{font-size:24px;margin-bottom:10px;display:block;transition:transform .35s}
+    .tc:hover .tc-ico{transform:scale(1.28) rotate(-8deg)}
+    .tc-n{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--c);text-transform:uppercase}
+    .tc-d{font-size:12px;color:var(--tm);margin-top:5px;line-height:1.5}
+    .tbuls{display:flex;flex-direction:column;gap:10px}
+    .tbul{display:flex;align-items:center;gap:12px;transition:transform .25s;cursor:default}
+    .tbul:hover{transform:translateX(4px)}
+    .tbul-d{width:4px;height:4px;border-radius:50%;background:var(--c);flex-shrink:0;transition:box-shadow .25s}
+    .tbul:hover .tbul-d{box-shadow:0 0 8px var(--c)}
+    .tbul-t{font-size:12px;color:var(--tm);transition:color .25s}
+    .tbul:hover .tbul-t{color:var(--t)}
+
+    /* COMPARE TABLE */
+    .ctable{width:100%;border-collapse:collapse;max-width:860px}
+    .ctable th{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--c);padding:14px 18px;border-bottom:2px solid var(--bhi);text-align:left;text-transform:uppercase}
+    .ctable td{padding:14px 18px;border-bottom:1px solid var(--b);font-size:13px;color:var(--tm);transition:background .2s,color .2s}
+    .ctable tr:hover td{background:rgba(0,229,255,.03);color:var(--t)}
+    .ctable td:first-child{font-family:'Space Mono',monospace;font-size:11px;color:var(--t);letter-spacing:1px}
+    .ctable td.cy{color:var(--g);font-weight:700}.ctable td.cn{color:var(--r);opacity:.7}.ctable td.ch{color:var(--c);font-weight:600}
+    .ctable tr.hl td{background:rgba(0,229,255,.06)}
+    .ctable tr.hl td:first-child::after{content:' ★';color:var(--c)}
+
+    /* FAQ */
+    .faq-list{max-width:720px}
+    .faq-item{border:1px solid var(--b);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .3s}
+    .faq-item:hover{border-color:var(--bhi)}
+    .faq-q{padding:20px 24px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1px;color:var(--w);background:var(--card);transition:background .25s,color .25s;user-select:none}
+    .faq-q:hover{background:var(--card2);color:var(--c)}
+    .faq-ar{font-size:16px;color:var(--tm);transition:transform .35s cubic-bezier(.22,.68,0,1.2),color .25s}
+    .faq-item.open .faq-ar{transform:rotate(180deg);color:var(--c)}.faq-item.open .faq-q{color:var(--c)}
+    .faq-body{max-height:0;overflow:hidden;transition:max-height .42s cubic-bezier(.22,.68,0,1);background:var(--card2)}
+    .faq-item.open .faq-body{max-height:220px}
+    .faq-bi{padding:0 24px 20px;font-size:13px;line-height:1.85;color:var(--tm)}
+
+    /* TEAM */
+    .team-cards{display:flex;gap:20px}
+    .tcrd{flex:1;background:var(--card);border:1px solid var(--b);border-radius:12px;padding:30px;position:relative;overflow:hidden;cursor:default;transition:border-color .3s,transform .35s cubic-bezier(.22,.68,0,1.2),box-shadow .3s;will-change:transform}
+    .tcrd::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--c),transparent);opacity:0;transition:opacity .3s}
+    .tcrd:hover{border-color:var(--bhi);transform:translateY(-6px);box-shadow:0 16px 48px rgba(0,0,0,.5)}.tcrd:hover::before{opacity:1}
+    .tav{width:58px;height:58px;border-radius:50%;border:2px solid var(--bhi);background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:16px;transition:border-color .3s,transform .35s}
+    .tcrd:hover .tav{border-color:var(--cdim);transform:scale(1.08)}
+    .tnm{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--w);letter-spacing:1px;margin-bottom:4px}
+    .trl{font-size:11px;color:var(--tm);letter-spacing:1px;margin-bottom:16px}
+    .tsks{display:flex;flex-wrap:wrap;gap:6px}
+    .tsk{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.5px;padding:3px 8px;border-radius:3px;background:rgba(0,229,255,.06);border:1px solid var(--bhi);color:var(--tm);transition:all .25s}
+    .tcrd:hover .tsk{border-color:var(--cdim);color:var(--c)}
+
+    /* LAUNCH */
+    .launch-sec{text-align:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 100%,rgba(0,229,255,.05) 0%,transparent 65%)}
+    .lti{font-family:'Bebas Neue',sans-serif;font-size:68px;letter-spacing:3px;color:var(--w);margin-bottom:18px}
+    .lsb{font-size:14px;color:var(--tm);max-width:440px;margin:0 auto 44px;line-height:1.8}
+    .lcta{font-family:'Space Mono',monospace;font-size:13px;letter-spacing:3px;padding:18px 54px;border-radius:8px;border:none;cursor:pointer;background:var(--c);color:var(--bg);font-weight:700;text-transform:uppercase;box-shadow:0 0 40px rgba(0,229,255,.35);transition:box-shadow .3s,background .2s;will-change:transform}
+    .lcta:hover{background:#33edff;box-shadow:0 0 72px rgba(0,229,255,.62)}
+
+    /* FOOTER */
+    .land-foot{padding:22px 60px;border-top:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;background:rgba(2,5,15,.85);backdrop-filter:blur(8px)}
+    .land-foot span{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1.5px;color:var(--td)}
+    .land-foot .hi{color:var(--c)}
+
+    /* ONBOARDING */
+    #onboarding{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:rgba(2,5,15,.96);backdrop-filter:blur(20px);opacity:0;pointer-events:none;transition:opacity .45s ease}
+    #onboarding.vis{opacity:1;pointer-events:auto}
+    .ob-box{width:580px;max-width:92vw;background:var(--card);border:1px solid var(--bhi);border-radius:16px;padding:44px 48px;position:relative;text-align:center;box-shadow:0 0 80px rgba(0,229,255,.1);transform:scale(.97) translateY(12px);transition:transform .45s cubic-bezier(.22,.68,0,1.2)}
+    #onboarding.vis .ob-box{transform:scale(1) translateY(0)}
+    .ob-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--c),transparent);border-radius:16px 16px 0 0}
+    .ob-cls{position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;font-size:15px;color:var(--tm);font-family:'Space Mono',monospace;transition:color .2s,transform .3s}
+    .ob-cls:hover{color:var(--r);transform:rotate(90deg) scale(1.1)}
+    .ob-ico{width:84px;height:84px;border-radius:50%;border:2px solid var(--c);display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 28px;box-shadow:0 0 32px rgba(0,229,255,.25);animation:ipulse 3s ease-in-out infinite}
+    .ob-slides{position:relative;min-height:220px}
+    .ob-sl{position:absolute;inset:0;opacity:0;transform:translateY(12px);transition:opacity .4s ease,transform .4s ease;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 8px}
+    .ob-sl.on{opacity:1;transform:none}
+#onboarding.vis .ob-sl.on{pointer-events:auto}
+    .ob-sl h2{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:4px;color:var(--c)}
+    .ob-sl p{font-size:14px;line-height:1.75;color:var(--t);max-width:460px}
+    .ob-sl .hi{color:var(--c);font-weight:600}
+    .ob-ig{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+    .ob-in{background:var(--card2);border:1px solid var(--b);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;text-align:left;transition:border-color .25s;cursor:default}
+    .ob-in:hover{border-color:var(--bhi)}
+    .ob-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+    .ob-dot.g{background:var(--g);box-shadow:0 0 6px var(--g)}.ob-dot.r{background:var(--r);box-shadow:0 0 6px var(--r)}
+    .ob-dot.a{background:var(--amb);box-shadow:0 0 6px var(--amb)}.ob-dot.c{background:var(--c);box-shadow:0 0 6px var(--c)}
+    .ob-it{font-size:12px;line-height:1.4;color:var(--tm)}
+    .ob-it strong{color:var(--t);font-size:12px;display:block;letter-spacing:1px;font-family:'Space Mono',monospace}
+    .ob-cr{font-size:11px;letter-spacing:1.5px;color:var(--td);font-family:'Space Mono',monospace}
+    .ob-cr span{color:var(--cdim)}
+    .ob-prog{display:flex;justify-content:center;gap:8px;margin:24px 0 20px}
+    .ob-pd{width:8px;height:8px;border-radius:50%;background:var(--bhi);cursor:pointer;transition:all .3s}
+    .ob-pd.on{background:var(--c);transform:scale(1.3);box-shadow:0 0 8px var(--c)}
+    .ob-nav{display:flex;justify-content:center;gap:12px;align-items:center}
+    .ob-btn{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;padding:10px 22px;border-radius:6px;border:1px solid;cursor:pointer;text-transform:uppercase;transition:all .2s;background:transparent}
+    .ob-btn.nx{border-color:var(--c);color:var(--c)}.ob-btn.nx:hover{background:rgba(0,229,255,.1);box-shadow:0 0 16px rgba(0,229,255,.2)}
+    .ob-btn.nx.fin{background:var(--c);color:var(--bg);font-weight:700}.ob-btn.nx.fin:hover{background:#33edff;box-shadow:0 0 24px rgba(0,229,255,.5)}
+    .ob-btn.pv{border-color:var(--bhi);color:var(--tm)}.ob-btn.pv:hover{color:var(--t)}
+    .ob-btn.sk{border-color:transparent;color:var(--td);font-size:9px}.ob-btn.sk:hover{color:var(--tm)}
+
+    /* DASHBOARD */
+    #dashboard{position:fixed;inset:0;z-index:500;display:grid;grid-template-rows:auto 1fr auto;padding:14px 18px;gap:12px;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .7s ease}
+    #dashboard.vis{opacity:1;pointer-events:auto}
+    #dashboard::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;transform:translateZ(0)}
+    .dh{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--b);padding-bottom:12px}
+    .dh-logo{display:flex;align-items:center;gap:14px}
+    .dh-li{width:42px;height:42px;border:1.5px solid var(--c);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 20px var(--cglow);animation:ipulse 3s ease-in-out infinite;transition:box-shadow .3s,transform .2s;cursor:default}
+    .dh-li:hover{transform:scale(1.08);box-shadow:0 0 32px rgba(0,229,255,.45)}
+    .dh-nm{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:5px;color:var(--c);text-shadow:0 0 24px rgba(0,229,255,.4);line-height:1}
+    .dh-sb{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--td)}
+    .dh-r{display:flex;align-items:center;gap:20px}
+    .live-badge{display:none;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--g);transition:opacity .2s}
+    .live-badge.vis{display:flex}.live-badge:hover{opacity:.8}
+    .live-dot{width:8px;height:8px;border-radius:50%;background:var(--g);animation:blink 1.2s ease-in-out infinite;box-shadow:0 0 8px var(--g)}
+    .sclock{font-family:'Space Mono',monospace;font-size:14px;color:var(--tm);letter-spacing:3px;cursor:default;transition:color .3s}
+    .sclock:hover{color:var(--t)}
+    .cam-btn{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;padding:9px 20px;border-radius:6px;border:1px solid;cursor:pointer;text-transform:uppercase;transition:background .2s,box-shadow .2s,transform .15s;will-change:transform}
+    .cam-btn.st{border-color:var(--g);color:var(--g);background:rgba(5,242,122,.06)}.cam-btn.st:hover{background:rgba(5,242,122,.16);box-shadow:0 0 20px rgba(5,242,122,.3);transform:translateY(-2px)}
+    .cam-btn.sp{border-color:var(--r);color:var(--r);background:rgba(255,45,85,.06)}.cam-btn.sp:hover{background:rgba(255,45,85,.16);box-shadow:0 0 20px rgba(255,45,85,.3);transform:translateY(-2px)}
+    .db{position:relative;z-index:1;display:grid;grid-template-columns:1fr 290px;gap:12px;min-height:0}
+    .campanel{border:1px solid var(--b);border-radius:12px;overflow:hidden;background:#000;position:relative;display:flex;align-items:center;justify-content:center;transition:border-color .3s;min-height:480px}
+    .campanel:hover{border-color:var(--bhi)}
+    .corner{position:absolute;width:22px;height:22px;border-color:var(--c);border-style:solid;z-index:3;opacity:.55;transition:opacity .3s}
+    .campanel:hover .corner{opacity:.9}
+    .corner.tl{top:12px;left:12px;border-width:2px 0 0 2px}.corner.tr{top:12px;right:12px;border-width:2px 2px 0 0}
+    .corner.bl{bottom:12px;left:12px;border-width:0 0 2px 2px}.corner.br{bottom:12px;right:12px;border-width:0 2px 2px 0}
+    #ss{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:#000;z-index:5;transition:opacity .5s ease}
+    #ss.h{opacity:0;pointer-events:none}
+    .ss-ico{font-size:52px;opacity:.28}
+    .ss-msg{font-family:'Space Mono',monospace;font-size:13px;letter-spacing:2px;color:var(--tm);text-align:center;line-height:2;max-width:300px}
+    .ss-btn{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;padding:13px 36px;border-radius:8px;border:1.5px solid var(--c);background:rgba(0,229,255,.08);color:var(--c);cursor:pointer;text-transform:uppercase;transition:background .2s,box-shadow .2s,transform .15s}
+    .ss-btn:hover{background:rgba(0,229,255,.22);box-shadow:0 0 44px rgba(0,229,255,.35);transform:scale(1.04)}
+    #vf{width:100%;height:100%;object-fit:cover;display:none}#vf.on{display:block}
+    .fps-tag{position:absolute;bottom:14px;left:14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--td);z-index:3;letter-spacing:1px}
+    .aov{position:absolute;inset:0;background:rgba(255,45,85,.12);border:3px solid var(--r);border-radius:12px;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;z-index:10;animation:aflash .7s ease-in-out infinite}
+    .aov.on{display:flex}
+    @keyframes aflash{0%,100%{background:rgba(255,45,85,.12)}50%{background:rgba(255,45,85,.28)}}
+    .aov-h{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:6px;color:var(--r);text-shadow:0 0 40px rgba(255,45,85,.9)}
+    .aov-s{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:4px;color:rgba(255,100,130,.8);text-transform:uppercase}
+    .cal{position:absolute;inset:0;background:rgba(2,5,15,.92);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;z-index:11;border-radius:12px}
+    .cal.on{display:flex}
+    .cal-spin{width:54px;height:54px;border:3px solid rgba(0,229,255,.15);border-top-color:var(--c);border-radius:50%;animation:cspin .8s linear infinite}
+    @keyframes cspin{to{transform:rotate(360deg)}}
+    .cal-h{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:5px;color:var(--c);text-shadow:0 0 24px rgba(0,229,255,.45)}
+    .cal-s{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--tm);text-transform:uppercase}
+    .cal-bar{width:240px;height:4px;background:rgba(0,229,255,.12);border-radius:2px;overflow:hidden;margin-top:6px}
+    .cal-bf{height:100%;width:0%;background:linear-gradient(90deg,var(--c),#33edff);border-radius:2px;transition:width .15s linear;box-shadow:0 0 12px var(--c)}
+    .side-panel{display:flex;flex-direction:column;gap:10px}
+    .card{background:var(--card);border:1px solid var(--b);border-radius:10px;padding:16px;position:relative;overflow:hidden;transition:border-color .3s,box-shadow .3s}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cdim),transparent)}
+    .card:hover{border-color:var(--bhi);box-shadow:0 4px 20px rgba(0,229,255,.07)}
+    .card-l{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--td);text-transform:uppercase;margin-bottom:12px}
+    .sico{font-size:32px;margin-bottom:6px}
+    .sval{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:3px;transition:color .3s}
+    .sval.aw{color:var(--g);text-shadow:0 0 24px rgba(5,242,122,.5)}
+    .sval.sl{color:var(--r);text-shadow:0 0 24px rgba(255,45,85,.5);animation:pfade .8s ease-in-out infinite}
+    .sval.nf{color:var(--amb);text-shadow:0 0 24px rgba(255,190,0,.4)}
+    .sval.sb{color:var(--tm)}
+    @keyframes pfade{0%,100%{opacity:1}50%{opacity:.55}}
+    .ctrack{background:var(--b);border-radius:4px;height:6px;margin-top:12px;overflow:hidden}
+    .cfill{height:100%;border-radius:4px;width:0%;transition:width .4s ease,background .4s}
+    .cfill.sf{background:linear-gradient(90deg,var(--g),#00c45e)}
+    .cfill.wn{background:linear-gradient(90deg,var(--amb),#ff7700)}
+    .cfill.dn{background:linear-gradient(90deg,var(--r),#cc0033);box-shadow:0 0 8px rgba(255,45,85,.6)}
+    .clbl{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--td);font-family:'Space Mono',monospace;letter-spacing:1px}
+    .dtimer{font-family:'Bebas Neue',sans-serif;font-size:44px;color:var(--r);letter-spacing:4px;text-align:center;display:none;text-shadow:0 0 20px rgba(255,45,85,.5)}
+    .dtimer.vis{display:block}
+    .dtimer-l{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--td);text-align:center;margin-top:4px;display:none}
+    .dtimer-l.vis{display:block}
+    .mrow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--b)}
+    .mrow:last-child{border-bottom:none}
+    .mn{font-size:12px;letter-spacing:1px;color:var(--tm);text-transform:uppercase;font-family:'Space Mono',monospace}
+    .mv{font-family:'Space Mono',monospace;font-size:12px;color:var(--c)}
+    .dash-ft{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--b);padding-top:10px}
+    .dash-ft span{font-family:'Space Mono',monospace;font-size:11px;color:var(--td);letter-spacing:1.5px}
+    .fcreds b{color:var(--c)}
+    .abl{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;padding:5px 14px;border-radius:5px;border:1px solid var(--cdim);color:var(--c);background:rgba(0,229,255,.06);cursor:pointer;transition:all .2s;text-transform:uppercase}
+    .abl:hover{background:rgba(0,229,255,.14);border-color:var(--c);box-shadow:0 0 12px rgba(0,229,255,.2)}
+    .backbtn{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;padding:5px 14px;border-radius:5px;border:1px solid var(--bhi);color:var(--tm);background:transparent;cursor:pointer;transition:all .2s;text-transform:uppercase}
+    .backbtn:hover{color:var(--c);border-color:var(--cdim)}
+
+    /* SUMMARY */
+    #sumscr{position:fixed;inset:0;z-index:800;background:rgba(2,5,15,.97);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .6s ease}
+    #sumscr.vis{opacity:1;pointer-events:auto}
+    .sbox{width:700px;max-width:94vw;background:var(--card);border:1px solid var(--bhi);border-radius:16px;padding:36px 40px;position:relative;box-shadow:0 0 80px rgba(0,229,255,.08);max-height:92vh;overflow-y:auto}
+    .sbox::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--c),transparent);border-radius:16px 16px 0 0}
+    .shdr{text-align:center;margin-bottom:28px}
+    .shdr h2{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:6px;color:var(--c);text-shadow:0 0 24px rgba(0,229,255,.4);margin-bottom:6px}
+    .shdr p{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--td)}
+    .rbadge{display:flex;align-items:center;gap:10px;justify-content:center;padding:12px 32px;border-radius:50px;font-family:'Space Mono',monospace;font-size:14px;font-weight:700;letter-spacing:3px;width:fit-content;margin:0 auto 28px;transition:box-shadow .3s,transform .3s;cursor:default}
+    .rbadge:hover{transform:scale(1.04)}
+    .rbadge.safe{border:2px solid var(--g);color:var(--g);background:rgba(5,242,122,.07);box-shadow:0 0 24px rgba(5,242,122,.2)}
+    .rbadge.mod{border:2px solid var(--amb);color:var(--amb);background:rgba(255,190,0,.07);box-shadow:0 0 24px rgba(255,190,0,.2)}
+    .rbadge.dan{border:2px solid var(--r);color:var(--r);background:rgba(255,45,85,.07);box-shadow:0 0 24px rgba(255,45,85,.2);animation:pfade 1s ease-in-out infinite}
+    .srow{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+    .scrd{background:var(--card2);border:1px solid var(--b);border-radius:10px;padding:16px;text-align:center;transition:all .25s ease;cursor:default}
+    .scrd:hover{transform:translateY(-4px);border-color:var(--bhi);box-shadow:0 8px 24px rgba(0,229,255,.1)}
+    .scrd-ic{font-size:24px;margin-bottom:8px;display:block;transition:transform .25s}
+    .scrd:hover .scrd-ic{transform:scale(1.2)}
+    .scrd-v{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px}
+    .scrd-v.gn{color:var(--g)}.scrd-v.rd{color:var(--r)}
+    .scrd-l{font-size:10px;letter-spacing:2px;color:var(--td);font-family:'Space Mono',monospace;margin-top:4px}
+    .chartsec{display:flex;align-items:center;justify-content:center;gap:32px;margin-bottom:20px}
+    .chartlbl{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--td);text-align:center;margin-bottom:12px}
+    .dwrap{display:flex;align-items:center;gap:24px;cursor:default;transition:transform .3s}
+    .dwrap:hover{transform:scale(1.03)}
+    .legend{display:flex;flex-direction:column;gap:10px}
+    .legit{display:flex;align-items:center;gap:10px;transition:transform .2s;cursor:default}
+    .legit:hover{transform:translateX(4px)}
+    .legdot{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:transform .2s}
+    .legit:hover .legdot{transform:scale(1.3)}
+    .legdot.gn{background:var(--g);box-shadow:0 0 6px var(--g)}.legdot.rd{background:var(--r);box-shadow:0 0 6px var(--r)}
+    .legtx{font-size:12px;color:var(--tm);font-family:'Space Mono',monospace}
+    .evrow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+    .evcd{background:var(--card2);border:1px solid var(--b);border-radius:10px;padding:16px;display:flex;align-items:center;gap:16px;transition:all .25s ease;cursor:default}
+    .evcd:hover{transform:translateY(-3px);border-color:rgba(255,190,0,.3);box-shadow:0 6px 20px rgba(255,190,0,.1)}
+    .evico{font-size:28px;display:block;transition:transform .25s}
+    .evcd:hover .evico{transform:scale(1.25) rotate(-5deg)}
+    .evv{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--amb)}
+    .evl{font-size:10px;letter-spacing:2px;color:var(--td);font-family:'Space Mono',monospace}
+    .sacts{display:flex;gap:12px;justify-content:center;margin-bottom:20px}
+    .sbtn{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;padding:11px 24px;border-radius:6px;border:1px solid;cursor:pointer;text-transform:uppercase;transition:all .25s;background:transparent}
+    .sbtn.nw{border-color:var(--c);color:var(--c)}.sbtn.nw:hover{background:rgba(0,229,255,.1);transform:translateY(-2px);box-shadow:0 0 16px rgba(0,229,255,.2)}
+    .sbtn.pr{border-color:var(--bhi);color:var(--tm)}.sbtn.pr:hover{color:var(--t);transform:translateY(-2px)}
+    .screds{font-size:10px;letter-spacing:2px;color:var(--td);text-align:center;font-family:'Space Mono',monospace}
+    .screds b{color:var(--c)}
+
+    /* ABOUT */
+    #amodal{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;background:rgba(2,5,15,.92);backdrop-filter:blur(10px);opacity:0;pointer-events:none;transition:opacity .4s ease}
+    #amodal.vis{opacity:1;pointer-events:auto}
+    .abox{width:560px;max-width:92vw;background:var(--card);border:1px solid var(--bhi);border-radius:16px;padding:36px 40px;position:relative;box-shadow:0 0 80px rgba(0,229,255,.1);transform:translateY(20px) scale(.97);transition:transform .4s cubic-bezier(.22,.68,0,1.2)}
+    #amodal.vis .abox{transform:translateY(0) scale(1)}
+    .abox::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--c),transparent);border-radius:16px 16px 0 0}
+    .acls{position:absolute;top:16px;right:18px;font-size:15px;color:var(--tm);cursor:pointer;background:none;border:none;font-family:'Space Mono',monospace;transition:color .2s,transform .3s}
+    .acls:hover{color:var(--r);transform:rotate(90deg) scale(1.15)}
+    .ati{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:4px;color:var(--c);text-shadow:0 0 20px rgba(0,229,255,.4);margin-bottom:4px}
+    .asub{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--td);margin-bottom:24px}
+    .asec{margin-bottom:20px}
+    .asect{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--td);text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--b);margin-bottom:10px}
+    .adesc{font-size:13px;line-height:1.8;color:var(--t)}
+    .atg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .atp{background:var(--card2);border:1px solid var(--b);border-radius:6px;padding:7px 10px;font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1px;color:var(--c);text-align:center;transition:all .25s;cursor:default}
+    .atp:hover{border-color:var(--cdim);background:rgba(0,229,255,.07);transform:translateY(-3px);box-shadow:0 4px 12px rgba(0,229,255,.12)}
+    .ateam{display:flex;gap:12px}
+    .atc{flex:1;background:var(--card2);border:1px solid var(--b);border-radius:8px;padding:12px 16px;transition:all .25s;cursor:default}
+    .atc:hover{border-color:var(--cdim);transform:translateY(-3px)}
+    .atn{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--c);letter-spacing:1px;margin-bottom:3px}
+    .atr{font-size:11px;color:var(--tm);letter-spacing:1px}
+    .astats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .ast{background:var(--card2);border:1px solid var(--b);border-radius:8px;padding:10px;text-align:center;transition:all .25s;cursor:default}
+    .ast:hover{border-color:var(--bhi);transform:translateY(-3px);box-shadow:0 6px 18px rgba(0,229,255,.08)}
+    .asv{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--g);letter-spacing:2px}
+    .asl{font-size:9px;letter-spacing:2px;color:var(--td);font-family:'Space Mono',monospace}
+
+    /* RIPPLE */
+    .rt{position:relative;overflow:hidden}
+    .rp{position:absolute;border-radius:50%;background:rgba(0,229,255,.12);transform:scale(0);animation:rout .55s ease-out;pointer-events:none}
+    @keyframes rout{to{transform:scale(4);opacity:0}}
+
+    /* TOOLTIP */
+    [data-tip]{position:relative}
+    [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(4px);background:#0a1330;color:var(--t);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;padding:5px 10px;border-radius:5px;border:1px solid var(--bhi);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:999}
+    [data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    /* PRINT */
+    @media print{
+      body{background:#fff!important;color:#000!important;overflow:auto}
+      #landing,#onboarding,#dashboard,body::after{display:none!important}
+      #sumscr{position:static!important;opacity:1!important;background:#fff!important;pointer-events:auto!important}
+      .sbox{box-shadow:none!important;border:1px solid #ccc!important;max-height:none!important;transform:none!important}
+      .sacts{display:none!important}
+      :root{--card:#f5f5f5;--card2:#ececec;--t:#111;--tm:#555;--c:#0055aa;--g:#007733;--r:#cc0022;--amb:#aa6600;--b:#ccc}
+    }
+
+    /* LIGHT MODE SURFACE OVERRIDES */
+    html.light .ticker-bar{background:rgba(0,100,170,.04)}
+    html.light #dashboard{background:var(--bg)}
+    html.light #dashboard::before{background-image:linear-gradient(rgba(0,100,170,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(0,100,170,.018) 1px,transparent 1px);background-size:48px 48px}
+    html.light .land-foot{background:rgba(240,244,250,.9)}
+    html.light body::after{background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.018) 3px,rgba(0,0,0,.018) 4px)}
+  </style>
+</head>
+<body>
+
+<!-- ══ LANDING ══ -->
+<div id="landing">
+  <nav class="land-nav">
+    <div class="nav-logo">
+      <div class="nli">👁</div>
+      <div><div class="nlt">SAFEDRIVE AI</div><div class="nls">Driver Safety System</div></div>
+    </div>
+    <div class="nav-links">
+      <span class="nav-link" onclick="goS('how')">How It Works</span>
+      <span class="nav-link" onclick="goS('model')">Model</span>
+      <span class="nav-link" onclick="goS('impact')">Impact</span>
+      <span class="nav-link" onclick="goS('compare')">Compare</span>
+      <span class="nav-link" onclick="goS('faq')">FAQ</span>
+      <span class="nav-link" onclick="goS('team')">Team</span>
+    </div>
+    <div class="nav-right">
+      <span class="nbadge v">v1.0</span>
+      <span class="nbadge m">Custom CNN</span>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode">
+        <span class="tt-icon" id="ttIcon">🌙</span>
+        <span id="ttLabel">LIGHT</span>
+      </button>
+      <button class="nav-launch" onclick="openOB()">▶ Launch</button>
+    </div>
+  </nav>
+
+  <div class="ticker-bar">
+    <div class="tkl">SYSTEM INFO</div>
+    <div class="tkt"><div class="tki" id="ticker"></div></div>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero">
+    <canvas class="hero-bg" id="bgc"></canvas>
+    <div class="hc">
+      <div class="h-ey">AI-POWERED REAL-TIME MONITORING</div>
+      <h1 class="h-ti">DON'T<br>DRIVE <span class="ac">TIRED.</span></h1>
+      <p class="h-sb">SafeDrive AI uses <strong>deep learning</strong> to monitor your eyes in real time and alerts you the moment drowsiness is detected — keeping every journey safe.</p>
+      <div class="h-stats">
+        <div class="hst" data-tip="Test set accuracy on 12,737 unseen images"><div class="hst-v">99.14%</div><div class="hst-l">Accuracy</div></div>
+        <div class="hst" data-tip="Alert fires under 500ms"><div class="hst-v">&lt;0.5s</div><div class="hst-l">Latency</div></div>
+        <div class="hst" data-tip="MRL Eye Dataset · 84,898 images"><div class="hst-v">MRL</div><div class="hst-l">Dataset</div></div>
+        <div class="hst" data-tip="30 training epochs with LR scheduling"><div class="hst-v">30</div><div class="hst-l">Epochs</div></div>
+        <div class="hst" data-tip="Frames per second"><div class="hst-v">30</div><div class="hst-l">FPS</div></div>
+      </div>
+      <div class="h-ctas">
+        <button class="cta-btn pri" onclick="openOB()">▶ Launch Dashboard</button>
+        <button class="cta-btn gho" onclick="goS('how')">How It Works ↓</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS BAR -->
+  <div class="sb reveal">
+    <div class="sbi"><div class="sbi-v" data-count="1350000">0</div><div class="sbi-l">Road Deaths / Year</div><div class="sbi-s">WHO 2023 — WORLDWIDE</div></div>
+    <div class="sbi"><div class="sbi-v" data-count="20">0</div><div class="sbi-l">% Caused by Drowsiness</div><div class="sbi-s">NATIONAL SLEEP FOUNDATION</div></div>
+    <div class="sbi"><div class="sbi-v" data-count="91">0</div><div class="sbi-l">% Preventable w/ Alerts</div><div class="sbi-s">IF WARNED EARLY ENOUGH</div></div>
+    <div class="sbi"><div class="sbi-v" data-count="0">0</div><div class="sbi-l">Cost to Use</div><div class="sbi-s">100% FREE &amp; OPEN SOURCE</div></div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <section class="sec" id="how">
+    <div class="sey reveal">SYSTEM PIPELINE</div>
+    <div class="sti reveal">HOW IT WORKS</div>
+    <div class="pipeline">
+      <div class="pipe reveal d1"><div class="p-num">01</div><span class="p-ico">📷</span><div class="p-ti">Camera Capture</div><div class="p-de">Your device camera streams live frames at up to 30 FPS. Each frame is pre-processed by OpenCV before analysis.</div><div class="p-ar">›</div></div>
+      <div class="pipe reveal d2"><div class="p-num">02</div><span class="p-ico">🔍</span><div class="p-ti">Face & Eye Detection</div><div class="p-de">Haar Cascade classifiers locate the driver's face and isolate both eye regions as individual image patches.</div><div class="p-ar">›</div></div>
+      <div class="pipe reveal d3"><div class="p-num">03</div><span class="p-ico">🧠</span><div class="p-ti">Deep Learning</div><div class="p-de">A custom CNN (1.19M params, trained on 85k eye images) classifies each eye crop as Awake or Sleepy with 99.14% test accuracy — in under 50ms.</div><div class="p-ar">›</div></div>
+      <div class="pipe reveal d4"><div class="p-num">04</div><span class="p-ico">🚨</span><div class="p-ti">Instant Alert</div><div class="p-de">If drowsiness persists beyond a configurable threshold, audio-visual alerts fire and session data is logged.</div></div>
+    </div>
+  </section>
+
+  <!-- MODEL DEEP-DIVE -->
+  <section class="sec bg2" id="model">
+    <div class="sey reveal">UNDER THE HOOD</div>
+    <div class="sti reveal">MODEL DETAILS</div>
+    <div class="model-grid">
+      <div class="mcard reveal d1">
+        <div class="mcard-t">Training Metrics</div>
+        <div class="mmet"><span class="mmet-n">Test Accuracy</span><span class="mmet-v">99.14%</span></div>
+        <div class="mmet"><span class="mmet-n">Validation Accuracy</span><span class="mmet-v">99.10%</span></div>
+        <div class="mmet"><span class="mmet-n">Training Epochs</span><span class="mmet-v">30</span></div>
+        <div class="mmet"><span class="mmet-n">Dataset</span><span class="mmet-v">MRL Eye · 84,898</span></div>
+        <div class="mmet"><span class="mmet-n">Parameters</span><span class="mmet-v">1.19M</span></div>
+        <div class="mmet"><span class="mmet-n">Inference Time</span><span class="mmet-v">&lt; 50ms</span></div>
+        <div class="mmet"><span class="mmet-n">Hardware Req.</span><span class="mmet-v">CPU Only</span></div>
+      </div>
+      <div class="mcard reveal d2">
+        <div class="mcard-t">Performance Breakdown</div>
+        <div style="margin-bottom:16px"><div class="bar-lbl"><span>Test Accuracy</span><span>99.14%</span></div><div class="bar-wrap"><div class="bar-fill bc" style="width:0%" data-w="99.14%"></div></div></div>
+        <div style="margin-bottom:16px"><div class="bar-lbl"><span>Open-Eye F1-Score</span><span>99.3%</span></div><div class="bar-wrap"><div class="bar-fill bg" style="width:0%" data-w="99.3%"></div></div></div>
+        <div style="margin-bottom:16px"><div class="bar-lbl"><span>Closed-Eye F1-Score</span><span>98.9%</span></div><div class="bar-wrap"><div class="bar-fill ba" style="width:0%" data-w="98.9%"></div></div></div>
+        <div><div class="bar-lbl"><span>Train/Val Gap (overfit check)</span><span>0.22%</span></div><div class="bar-wrap"><div class="bar-fill bc" style="width:0%" data-w="0.22%"></div></div></div>
+      </div>
+      <div class="mcard full reveal">
+        <div class="mcard-t">Model Architecture — Custom CNN (Trained From Scratch)</div>
+        <div class="arch-row">
+          <div class="arch-b"><span class="arch-l">INPUT</span><div class="arch-s">64×64 Grayscale</div></div><span class="arch-arr">→</span>
+          <div class="arch-b"><span class="arch-l">CONV BLOCK 1</span><div class="arch-s">2× Conv32 + BN + Pool</div></div><span class="arch-arr">→</span>
+          <div class="arch-b"><span class="arch-l">CONV BLOCK 2</span><div class="arch-s">2× Conv64 + BN + Pool</div></div><span class="arch-arr">→</span>
+          <div class="arch-b"><span class="arch-l">CONV BLOCK 3</span><div class="arch-s">Conv128 + BN + Pool</div></div><span class="arch-arr">→</span>
+          <div class="arch-b"><span class="arch-l">DENSE 128</span><div class="arch-s">ReLU + Dropout 0.5</div></div><span class="arch-arr">→</span>
+          <div class="arch-b"><span class="arch-l">OUTPUT</span><div class="arch-s">Sigmoid · Open/Closed</div></div>
+        </div>
+      </div>
+
+      <!-- NEW: CONFUSION MATRIX -->
+      <div class="mcard reveal d1">
+        <div class="mcard-t">Confusion Matrix — Test Set (12,737 images)</div>
+        <div class="cm-wrap">
+          <div class="cm-corner"></div>
+          <div class="cm-hdr">Predicted Closed</div>
+          <div class="cm-hdr">Predicted Open</div>
+
+          <div class="cm-side">Actual Closed</div>
+          <div class="cm-cell tp"><div class="cm-v">6,226</div><div class="cm-l">True Negative</div></div>
+          <div class="cm-cell fn"><div class="cm-v">67</div><div class="cm-l">False Positive</div></div>
+
+          <div class="cm-side">Actual Open</div>
+          <div class="cm-cell fp"><div class="cm-v">43</div><div class="cm-l">False Negative</div></div>
+          <div class="cm-cell tn"><div class="cm-v">6,401</div><div class="cm-l">True Positive</div></div>
+        </div>
+        <div class="cm-foot">Only <span class="hi">110 errors</span> across 12,737 images — a <span class="hi">0.86%</span> overall error rate.</div>
+      </div>
+
+      <!-- NEW: TRAINING PIPELINE -->
+      <div class="mcard reveal d2">
+        <div class="mcard-t">How We Trained It</div>
+        <div class="tp-step"><span class="tp-n">01</span><div><div class="tp-t">Data Split</div><div class="tp-d">84,898 images → 70% train, 15% val, 15% test (stratified, seed=42)</div></div></div>
+        <div class="tp-step"><span class="tp-n">02</span><div><div class="tp-t">Augmentation</div><div class="tp-d">Rotation ±15°, brightness 0.7–1.3, zoom ±15%, horizontal flip</div></div></div>
+        <div class="tp-step"><span class="tp-n">03</span><div><div class="tp-t">Architecture</div><div class="tp-d">3 conv blocks + dense head with batch norm and dropout</div></div></div>
+        <div class="tp-step"><span class="tp-n">04</span><div><div class="tp-t">Optimization</div><div class="tp-d">Adam optimizer, ReduceLROnPlateau (1e-3 → 6.25e-5)</div></div></div>
+        <div class="tp-step"><span class="tp-n">05</span><div><div class="tp-t">Result</div><div class="tp-d"><span class="hi">99.14% test accuracy</span> · 0.22% train-val gap (no overfitting)</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY IT MATTERS -->
+  <section class="sec" id="impact">
+    <div class="sey reveal">REAL-WORLD IMPACT</div>
+    <div class="sti reveal">WHY THIS MATTERS</div>
+    <div class="impact-grid">
+      <div class="icard reveal d1"><div class="icard-n">01</div><span class="icard-ico">💀</span><div class="icard-t">A Silent Killer</div><div class="icard-d">Drowsy driving causes an estimated <span class="hi">1-in-5 fatal crashes</span> globally. Unlike alcohol, drowsiness has no breathalyser — making automated detection critical.</div></div>
+      <div class="icard reveal d2"><div class="icard-n">02</div><span class="icard-ico">🕐</span><div class="icard-t">Microsleep is Unpredictable</div><div class="icard-d">A driver can fall asleep for <span class="hi">2–3 seconds</span> without warning. At 100 km/h, that's 80 metres of blind driving — enough to end a life.</div></div>
+      <div class="icard reveal d3"><div class="icard-n">03</div><span class="icard-ico">🚛</span><div class="icard-t">High-Risk Professions</div><div class="icard-d">Truck drivers, night-shift workers, and long-haul commuters are disproportionately affected. <span class="hi">SafeDrive AI</span> is built to protect exactly these people.</div></div>
+      <div class="icard reveal d4"><div class="icard-n">04</div><span class="icard-ico">🤖</span><div class="icard-t">Affordable AI Safety</div><div class="icard-d">Commercial DMS systems cost thousands. SafeDrive AI runs on a <span class="hi">standard webcam</span> — bringing life-saving tech to everyone.</div></div>
+      <div class="icard wide reveal"><div class="icard-n">05</div><span class="icard-ico">📊</span><div class="icard-t">Post-Session Analytics</div><div class="icard-d">Every session generates a detailed report: total drive time, alert vs drowsy time, event count, and a safety rating badge. Fleet managers can use this data to identify fatigue patterns, optimise schedules, and make smarter safety decisions over time.</div></div>
+    </div>
+  </section>
+
+  <!-- TECH STACK -->
+  <section class="sec bg2 tech-lay" id="tech">
+    <div class="tl">
+      <div class="sey reveal">TECHNOLOGY STACK</div>
+      <div class="sti reveal">BUILT WITH<br>PRECISION</div>
+      <p class="sdesc reveal">Each component was hand-picked for performance and reliability — from the lightweight custom CNN classifier to the threaded Flask server streaming processed frames at 30 FPS in real time.</p>
+      <div class="tbuls reveal">
+        <div class="tbul"><div class="tbul-d"></div><span class="tbul-t">99.14% test accuracy on MRL Eye Dataset (12,737 unseen images)</span></div>
+        <div class="tbul"><div class="tbul-d"></div><span class="tbul-t">Custom CNN trained from scratch — no transfer learning</span></div>
+        <div class="tbul"><div class="tbul-d"></div><span class="tbul-t">Real-time inference at &lt;50ms per frame on CPU</span></div>
+        <div class="tbul"><div class="tbul-d"></div><span class="tbul-t">Threaded prediction pipeline keeps frame capture at 30 FPS</span></div>
+        <div class="tbul"><div class="tbul-d"></div><span class="tbul-t">Local-only processing — zero data leaves device</span></div>
+      </div>
+    </div>
+    <div class="tr">
+      <div class="tgrid">
+        <div class="tc reveal d1"><span class="tc-ico">🧠</span><div class="tc-n">TensorFlow</div><div class="tc-d">Model training &amp; inference engine</div></div>
+        <div class="tc reveal d2"><span class="tc-ico">📦</span><div class="tc-n">Custom CNN</div><div class="tc-d">Lightweight 1.19M-param classifier</div></div>
+        <div class="tc reveal d3"><span class="tc-ico">👁</span><div class="tc-n">OpenCV</div><div class="tc-d">Frame processing &amp; detection</div></div>
+        <div class="tc reveal d1"><span class="tc-ico">🌐</span><div class="tc-n">Flask</div><div class="tc-d">Python backend server</div></div>
+        <div class="tc reveal d2"><span class="tc-ico">🎯</span><div class="tc-n">Haar Cascade</div><div class="tc-d">Face &amp; eye localisation</div></div>
+        <div class="tc reveal d3"><span class="tc-ico">🔊</span><div class="tc-n">Web Audio API</div><div class="tc-d">Browser alert synthesis</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON TABLE -->
+  <section class="sec" id="compare">
+    <div class="sey reveal">COMPETITIVE ANALYSIS</div>
+    <div class="sti reveal">HOW WE COMPARE</div>
+    <div class="reveal" style="overflow-x:auto">
+      <table class="ctable">
+        <thead><tr><th>System</th><th>Cost</th><th>Hardware</th><th>Session Reports</th><th>Open Source</th><th>Alert Type</th></tr></thead>
+        <tbody>
+          <tr class="hl"><td>SafeDrive AI</td><td class="ch">Free</td><td class="ch">Standard Webcam</td><td class="cy">✔ Full Analytics</td><td class="cy">✔ Yes</td><td class="ch">Audio + Visual</td></tr>
+          <tr><td>Mobileye Shield+</td><td class="cn">$2,000+</td><td>Dedicated Sensor</td><td class="cy">✔ Basic</td><td class="cn">✘ Proprietary</td><td>Audio + Haptic</td></tr>
+          <tr><td>OEM Built-in DMS</td><td class="cn">Bundled / High</td><td>IR Camera</td><td class="cn">✘ Limited</td><td class="cn">✘ Proprietary</td><td>Audio + Seat</td></tr>
+          <tr><td>Generic Fatigue App</td><td>Free–Paid</td><td>Smartphone</td><td class="cn">✘ None</td><td class="cn">✘ No</td><td>Audio Only</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="sec bg2" id="faq">
+    <div class="sey reveal">QUESTIONS &amp; ANSWERS</div>
+    <div class="sti reveal">FAQ</div>
+    <div class="faq-list reveal">
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span>How accurate is the drowsiness detection?</span><span class="faq-ar">▾</span></div><div class="faq-body"><div class="faq-bi">The custom CNN model achieved <strong>99.14% test accuracy</strong> on 12,737 unseen images from the MRL Eye Dataset — only 110 errors total. Across 30 training epochs the model reached 99.10% validation accuracy with a 0.22% train-val gap, indicating strong generalization with no overfitting.</div></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span>What hardware do I need?</span><span class="faq-ar">▾</span></div><div class="faq-body"><div class="faq-bi">Just a standard webcam and a computer running Python. No GPU is required — inference runs on CPU. For in-vehicle use, a Raspberry Pi can host the Flask server with the dashboard on any browser-capable screen.</div></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span>How is the alert triggered?</span><span class="faq-ar">▾</span></div><div class="faq-body"><div class="faq-bi">When the model continuously classifies <em>Sleepy</em> for a configurable threshold (default 2 seconds), an audio beep and full-screen red overlay fire simultaneously. The alert repeats every second until eyes are detected as open again.</div></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span>Does it work in low light?</span><span class="faq-ar">▾</span></div><div class="faq-body"><div class="faq-bi">Performance degrades in very low light since Haar Cascade requires adequate contrast. For night driving, an infrared camera or cabin LED lighting is recommended. Future versions may incorporate IR-compatible models.</div></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span>Is any data stored or sent to a server?</span><span class="faq-ar">▾</span></div><div class="faq-body"><div class="faq-bi">No. All processing happens locally. The Flask server runs on localhost and no video data or personal information leaves your device. Session statistics are stored in memory only and cleared when the server restarts.</div></div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><span>Can it be used for fleet management?</span><span class="faq-ar">▾</span></div><div class="faq-body"><div class="faq-bi">Yes — the session report API (<code>/summary</code>) can be extended to POST data to a fleet dashboard. Each vehicle running SafeDrive AI could feed anonymised safety ratings and event counts to a central system for fatigue pattern analysis across drivers and shifts.</div></div></div>
+    </div>
+  </section>
+
+  <!-- TEAM -->
+  <section class="sec" id="team">
+    <div class="sey reveal">DEVELOPMENT TEAM</div>
+    <div class="sti reveal">THE BUILDERS</div>
+    <div class="team-cards">
+      <div class="tcrd reveal d1"><div class="tav">👨‍💻</div><div class="tnm">Murtaza Ahmad</div><div class="trl">ML &amp; Full Stack Developer</div><div class="tsks"><span class="tsk">Machine Learning</span><span class="tsk">TensorFlow</span><span class="tsk">Flask</span><span class="tsk">OpenCV</span><span class="tsk">Python</span></div></div>
+      <div class="tcrd reveal d2"><div class="tav">👨‍💻</div><div class="tnm">Mohad Akbar</div><div class="trl">ML &amp; Full Stack Developer</div><div class="tsks"><span class="tsk">Machine Learning</span><span class="tsk">Data Analysis</span><span class="tsk">Frontend Dev</span><span class="tsk">Python</span><span class="tsk">UI/UX</span></div></div>
+
+    </div>
+  </section>
+
+  <!-- LAUNCH CTA -->
+  <section class="sec launch-sec">
+    <div class="lti reveal">READY TO DRIVE SAFER?</div>
+    <p class="lsb reveal">Launch the live monitoring dashboard and see SafeDrive AI in action — real-time detection, session analytics, and instant alerts.</p>
+    <button class="lcta reveal" onclick="openOB()">▶ LAUNCH DASHBOARD</button>
+  </section>
+
+  <footer class="land-foot">
+    <span>SAFEDRIVE AI</span>
+    <span>© 2026 &nbsp;·&nbsp; <span class="hi">Murtaza Ahmad</span> &amp; <span class="hi">Mohad Akbar</span></span>
+    <span>Custom CNN · TensorFlow · OpenCV · Flask</span>
+  </footer>
+</div>
+
+<!-- ══ ONBOARDING ══ -->
+<div id="onboarding">
+  <div class="ob-box">
+    <button class="ob-cls" onclick="closeOB()">✕</button>
+    <div class="ob-ico" id="obi">🚗</div>
+    <div class="ob-slides">
+      <div class="ob-sl on" id="ob0"><h2>WELCOME TO SAFEDRIVE AI</h2><p><span class="hi">SafeDrive AI</span> is an intelligent driver fatigue monitoring system powered by deep learning. It watches your eyes in real time and alerts you the moment drowsiness is detected.</p><div class="ob-cr">Created by <span>Murtaza Ahmad</span> &amp; <span>Mohad Akbar</span></div></div>
+      <div class="ob-sl" id="ob1"><h2>HOW IT WORKS</h2><p>Frames are analysed by a <span class="hi">custom CNN</span> trained on 85,000 eye images. It classifies each eye crop as <span class="hi">Awake</span> or <span class="hi">Sleepy</span> with 99.14% accuracy. If eyes stay closed too long, an <span class="hi">audio + visual alert</span> fires immediately.</p><div class="ob-cr">Created by <span>Murtaza Ahmad</span> &amp; <span>Mohad Akbar</span></div></div>
+      <div class="ob-sl" id="ob2"><h2>FOR BEST RESULTS</h2><div class="ob-ig" style="grid-template-columns:1fr 1fr;gap:8px"><div class="ob-in"><div class="ob-dot c"></div><div class="ob-it"><strong>DISTANCE</strong>50–70 cm (arm's length)</div></div><div class="ob-in"><div class="ob-dot g"></div><div class="ob-it"><strong>LIGHTING</strong>Bright, even, no backlight</div></div><div class="ob-in"><div class="ob-dot a"></div><div class="ob-it"><strong>POSTURE</strong>Face camera directly</div></div><div class="ob-in"><div class="ob-dot r"></div><div class="ob-it"><strong>FRAMING</strong>Face fills middle of view</div></div></div><p style="font-size:12px;margin-top:6px">Glasses are fine, but avoid heavy reflections. Keep your face centered and try not to tilt your head extremely — the model performs best with a clear, front-facing view of both eyes.</p><div class="ob-cr">Created by <span>Murtaza Ahmad</span> &amp; <span>Mohad Akbar</span></div></div>
+      <div class="ob-sl" id="ob3"><h2>READING THE INDICATORS</h2><div class="ob-ig"><div class="ob-in"><div class="ob-dot g"></div><div class="ob-it"><strong>AWAKE</strong>Eyes open &amp; alert</div></div><div class="ob-in"><div class="ob-dot r"></div><div class="ob-it"><strong>SLEEPY</strong>Eyes closed/drooping</div></div><div class="ob-in"><div class="ob-dot a"></div><div class="ob-it"><strong>SCANNING</strong>Face not in frame</div></div><div class="ob-in"><div class="ob-dot c"></div><div class="ob-it"><strong>CONFIDENCE</strong>Model certainty %</div></div></div><div class="ob-cr">Created by <span>Murtaza Ahmad</span> &amp; <span>Mohad Akbar</span></div></div>
+      <div class="ob-sl" id="ob4"><h2>YOU'RE ALL SET</h2><p>Position your face clearly in frame, ensure adequate lighting, then click <span class="hi">Start Camera</span>. The system monitors alertness continuously and logs a full session report.</p><div class="ob-cr">Created by <span>Murtaza Ahmad</span> &amp; <span>Mohad Akbar</span></div></div>
+    </div>
+    <div class="ob-prog"><div class="ob-pd on" onclick="obGo(0)"></div><div class="ob-pd" onclick="obGo(1)"></div><div class="ob-pd" onclick="obGo(2)"></div><div class="ob-pd" onclick="obGo(3)"></div><div class="ob-pd" onclick="obGo(4)"></div></div>
+    <div class="ob-nav"><button class="ob-btn sk" id="obsk" onclick="launch()">Skip</button><button class="ob-btn pv" id="obpv" onclick="obPrev()" style="display:none">← Prev</button><button class="ob-btn nx" id="obnx" onclick="obNext()">Next →</button></div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div id="dashboard">
+  <header class="dh">
+    <div class="dh-logo">
+      <div class="dh-li" data-tip="SafeDrive AI v1.0">👁</div>
+      <div><div class="dh-nm">SAFEDRIVE AI</div><div class="dh-sb">Driver Fatigue Detection System</div></div>
+    </div>
+    <div class="dh-r">
+      <div class="live-badge" id="lb"><div class="live-dot"></div>LIVE</div>
+      <div class="sclock" id="sclock">00:00:00</div>
+      <button class="cam-btn st" id="cbtn" onclick="toggleCam()" data-tip="Click to activate camera">▶ Start Camera</button>
+    </div>
+  </header>
+  <div class="db">
+    <div class="campanel">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <div id="ss"><div class="ss-ico">📷</div><div class="ss-msg">START BEFORE DRIVING<br><span style="font-size:10px;color:var(--td)">ensure a safe, alert journey</span></div><button class="ss-btn" onclick="toggleCam()">▶ Start Camera</button></div>
+      <img id="vf" src="" alt="Live Camera Feed" style="display:none"/>
+      <video id="vf-local" autoplay playsinline muted style="display:none;width:100%;height:100%;object-fit:cover;border-radius:inherit"></video>
+      <div class="fps-tag" id="fpstag"></div>
+      <div class="aov" id="aov"><div class="aov-h">⚠ DROWSINESS DETECTED</div><div class="aov-s">Please pull over and rest</div></div>
+      <div class="cal" id="cal"><div class="cal-spin"></div><div class="cal-h">CALIBRATING MODEL</div><div class="cal-s">Stabilizing camera &amp; warming up CNN</div><div class="cal-bar"><div class="cal-bf" id="calbf"></div></div></div>
+    </div>
+    <div class="side-panel">
+      <div class="card"><div class="card-l" data-tip="Real-time eye analysis">Driver Status</div><span class="sico" id="sico">💤</span><div class="sval sb" id="sval">STANDBY</div><div class="ctrack"><div class="cfill" id="cfill"></div></div><div class="clbl"><span>AWAKE</span><span id="cpct">--%</span><span>SLEEPY</span></div></div>
+      <div class="card"><div class="card-l" data-tip="Continuous eye-closed duration">Eyes Closed Duration</div><div class="dtimer" id="dtimer">0s</div><div class="dtimer-l" id="dtimerl">CONTINUOUS DROWSINESS</div></div>
+      <div class="card"><div class="card-l">System Metrics</div>
+        <div class="mrow"><span class="mn">Session</span><span class="mv" id="msess">--:--:--</span></div>
+        <div class="mrow"><span class="mn">Frame Rate</span><span class="mv" id="mfps">-- FPS</span></div>
+        <div class="mrow"><span class="mn">Confidence</span><span class="mv" id="mconf">--%</span></div>
+        <div class="mrow"><span class="mn">Model</span><span class="mv" style="font-size:10px">Custom CNN</span></div>
+      </div>
+    </div>
+  </div>
+  <footer class="dash-ft">
+    <span id="ftime"></span>
+    <span class="fcreds">Created by <b>Murtaza Ahmad</b> &amp; <b>Mohad Akbar</b></span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="abl" onclick="openAb()">ℹ About</button>
+      <button class="backbtn" onclick="goLanding()">← Landing</button>
+    </div>
+  </footer>
+</div>
+
+<!-- ══ ABOUT ══ -->
+<div id="amodal" onclick="closeAbOut(event)">
+  <div class="abox">
+    <button class="acls" onclick="closeAb()">✕</button>
+    <div class="ati">ABOUT SAFEDRIVE AI</div>
+    <div class="asub">INTELLIGENT DRIVER FATIGUE DETECTION SYSTEM</div>
+    <div class="asec"><div class="asect">What It Does</div><div class="adesc">Uses a custom-trained CNN to monitor driver alertness in real time. Detects eye closure patterns and triggers immediate audio-visual alerts when drowsiness is detected — preventing accidents before they happen.</div></div>
+    <div class="asec"><div class="asect">Model Performance</div><div class="astats"><div class="ast"><div class="asv">99.14%</div><div class="asl">Test Accuracy</div></div><div class="ast"><div class="asv">30</div><div class="asl">Epochs</div></div><div class="ast"><div class="asv">85K</div><div class="asl">Images</div></div></div></div>
+    <div class="asec"><div class="asect">Technology Stack</div><div class="atg"><div class="atp">TensorFlow</div><div class="atp">Custom CNN</div><div class="atp">OpenCV</div><div class="atp">Flask</div><div class="atp">Haar Cascade</div><div class="atp">Web Audio API</div></div></div>
+    <div class="asec"><div class="asect">Development Team</div><div class="ateam"><div class="atc"><div class="atn">Murtaza Ahmad</div><div class="atr">ML &amp; Full Stack Dev</div></div><div class="atc"><div class="atn">Mohad Akbar</div><div class="atr">ML &amp; Full Stack Dev</div></div></div></div>
+  </div>
+</div>
+
+<!-- ══ SUMMARY ══ -->
+<div id="sumscr">
+  <div class="sbox">
+    <div class="shdr"><h2>📋 SESSION REPORT</h2><p>SAFEDRIVE AI — POST-SESSION ANALYSIS</p></div>
+    <div class="rbadge safe" id="rbadge"><span id="ric">✅</span><span id="rtxt">SAFE DRIVER</span></div>
+    <div class="srow">
+      <div class="scrd"><span class="scrd-ic">⏱️</span><div class="scrd-v" id="stot">--</div><div class="scrd-l">Total Duration</div></div>
+      <div class="scrd"><span class="scrd-ic">👀</span><div class="scrd-v gn" id="saw">--</div><div class="scrd-l">Alert Time</div></div>
+      <div class="scrd"><span class="scrd-ic">😴</span><div class="scrd-v rd" id="sdr">--</div><div class="scrd-l">Drowsy Time</div></div>
+    </div>
+    <div class="chartsec"><div><div class="chartlbl">Alertness Breakdown</div><div class="dwrap"><svg width="130" height="130" viewBox="0 0 130 130"><circle cx="65" cy="65" r="52" fill="none" stroke="#111f3f" stroke-width="18"/><circle id="ddr" cx="65" cy="65" r="52" fill="none" stroke="#ff2d55" stroke-width="18" stroke-dasharray="0 327" stroke-dashoffset="82" stroke-linecap="round" style="transition:stroke-dasharray 1s ease;transform:rotate(-90deg);transform-origin:65px 65px"/><circle id="daw" cx="65" cy="65" r="52" fill="none" stroke="#05f27a" stroke-width="18" stroke-dasharray="327 0" stroke-dashoffset="82" stroke-linecap="round" style="transition:stroke-dasharray 1s ease;transform:rotate(-90deg);transform-origin:65px 65px"/><text x="65" y="60" text-anchor="middle" fill="#c5ddf7" font-family="Bebas Neue,sans-serif" font-size="18" id="dpct">--%</text><text x="65" y="76" text-anchor="middle" fill="#3d5c85" font-family="DM Sans,sans-serif" font-size="10">ALERT</text></svg><div class="legend"><div class="legit"><div class="legdot gn"></div><div class="legtx">Alert &nbsp;<span id="law">--%</span></div></div><div class="legit"><div class="legdot rd"></div><div class="legtx">Drowsy <span id="ldr">--%</span></div></div></div></div></div></div>
+    <div class="evrow"><div class="evcd"><span class="evico">😴</span><div><div class="evv" id="sev">0</div><div class="evl">Drowsiness Events</div></div></div><div class="evcd"><span class="evico">🔔</span><div><div class="evv" id="sal">0</div><div class="evl">Alerts Triggered</div></div></div></div>
+    <div class="sacts"><button class="sbtn nw" onclick="newSess()">▶ New Session</button><button class="sbtn pr" onclick="window.print()">🖨 Save / Print</button></div>
+    <div class="screds">Created by <b>Murtaza Ahmad</b> &amp; <b>Mohad Akbar</b> &nbsp;|&nbsp; SafeDrive AI v1.0</div>
+  </div>
+</div>
+
+<script>
+/* ── SCROLL ── */
+function goS(id){document.getElementById(id).scrollIntoView({behavior:'smooth'})}
+
+/* ── THEME TOGGLE ── */
+(function(){
+  const saved=localStorage.getItem('safedrive-theme');
+  if(saved==='light')document.documentElement.classList.add('light');
+  updateToggleUI();
+})();
+function toggleTheme(){
+  const isLight=document.documentElement.classList.toggle('light');
+  localStorage.setItem('safedrive-theme',isLight?'light':'dark');
+  document.documentElement.dispatchEvent(new Event('themechange'));
+  updateToggleUI();
+}
+function updateToggleUI(){
+  const isLight=document.documentElement.classList.contains('light');
+  const icon=document.getElementById('ttIcon');
+  const label=document.getElementById('ttLabel');
+  if(!icon||!label)return;
+  icon.textContent=isLight?'☀️':'🌙';
+  label.textContent=isLight?'DARK':'LIGHT';
+}
+
+/* ── REVEAL (passive IntersectionObserver — never blocks scroll) ── */
+const ro=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('vis');ro.unobserve(e.target)}})
+},{threshold:.1,rootMargin:'0px 0px -30px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+/* ── COUNT-UP ── */
+const co=new IntersectionObserver(es=>{
+  es.forEach(e=>{
+    if(!e.isIntersecting)return;
+    const el=e.target,t=+el.dataset.count;
+    if(!t){el.textContent='FREE';co.unobserve(el);return}
+    let s=null;
+    const step=ts=>{if(!s)s=ts;const p=Math.min((ts-s)/1800,1),v=Math.floor((1-Math.pow(1-p,3))*t);
+      el.textContent=t>=1e6?(v/1e6).toFixed(2)+'M+':v+(t===20||t===91?'%':'');
+      p<1?requestAnimationFrame(step):(el.textContent=t>=1e6?'1.35M+':t+(t===20||t===91?'%':''));
+    };
+    requestAnimationFrame(step);co.unobserve(el);
+  })
+},{threshold:.5});
+document.querySelectorAll('[data-count]').forEach(el=>co.observe(el));
+
+/* ── BAR FILLS (triggered when model section enters view) ── */
+const bro=new IntersectionObserver(es=>{
+  es.forEach(e=>{
+    if(!e.isIntersecting)return;
+    e.target.querySelectorAll('.bar-fill[data-w]').forEach(b=>setTimeout(()=>{b.style.width=b.dataset.w},200));
+    bro.unobserve(e.target);
+  })
+},{threshold:.3});
+document.querySelectorAll('.mcard').forEach(el=>bro.observe(el));
+
+/* ── HERO CANVAS (requestAnimationFrame — GPU composited) ── */
+(function(){
+  const cv=document.getElementById('bgc');if(!cv)return;
+  const cx=cv.getContext('2d');let W,H,sy=0,raf=null,gridCache=null;
+  function resize(){
+    W=cv.width=cv.offsetWidth;H=cv.height=cv.offsetHeight;
+    gridCache=null; /* invalidate cached grid on resize */
+  }
+  resize();new ResizeObserver(resize).observe(cv);
+
+  function drawGrid(){
+    /* Cache grid to offscreen canvas — redrawn only on resize */
+    const off=document.createElement('canvas');off.width=W;off.height=H;
+    const octx=off.getContext('2d');
+    const isLight=document.documentElement.classList.contains('light');
+    octx.strokeStyle=isLight?'rgba(0,100,160,.06)':'rgba(0,229,255,.028)';
+    octx.lineWidth=1;
+    for(let x=0;x<W;x+=56){octx.beginPath();octx.moveTo(x,0);octx.lineTo(x,H);octx.stroke()}
+    for(let y=0;y<H;y+=56){octx.beginPath();octx.moveTo(0,y);octx.lineTo(W,y);octx.stroke()}
+    const isL=document.documentElement.classList.contains('light');
+    const g=octx.createRadialGradient(W/2,H*.42,0,W/2,H*.42,W*.45);
+    g.addColorStop(0,isL?'rgba(0,100,180,.06)':'rgba(0,229,255,.07)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    octx.fillStyle=g;octx.fillRect(0,0,W,H);
+    gridCache=off;
+  }
+
+  function draw(){
+    if(!gridCache)drawGrid();
+    cx.clearRect(0,0,W,H);
+    cx.drawImage(gridCache,0,0);
+    const isLight=document.documentElement.classList.contains('light');
+    const sl=cx.createLinearGradient(0,sy-60,0,sy+60);
+    sl.addColorStop(0,'rgba(0,229,255,0)');
+    sl.addColorStop(.5,isLight?'rgba(0,100,180,.03)':'rgba(0,229,255,.042)');
+    sl.addColorStop(1,'rgba(0,229,255,0)');
+    cx.fillStyle=sl;cx.fillRect(0,sy-60,W,120);
+    sy+=1.1;if(sy>H+60)sy=-60;
+    raf=requestAnimationFrame(draw);
+  }
+
+  /* Pause animation when tab hidden — saves CPU/GPU */
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){cancelAnimationFrame(raf);raf=null}
+    else if(!raf)draw();
+  });
+  /* Invalidate grid cache on theme change so colors update */
+  document.documentElement.addEventListener('themechange',()=>{gridCache=null});
+  draw();
+})();
+
+/* ── TICKER ── */
+(function(){
+  const items=['Model: Custom CNN · 99.14% Test Accuracy','Alert latency: < 500ms','Real-time inference at 30 FPS','Trained on MRL Eye Dataset · 84,898 images','30 Epochs · Trained from scratch','1 in 5 fatal crashes caused by drowsiness','No GPU required · Runs on standard CPU','Session analytics & safety rating badge','Local processing — zero data leaves device','SafeDrive AI v1.0 · University Expo 2026','Awake / Sleepy classification in < 50ms','Haar Cascade + CNN hybrid pipeline'];
+  const w=document.getElementById('ticker');
+  [...items,...items].forEach(t=>{const d=document.createElement('div');d.className='tki-item';d.textContent=t;w.appendChild(d)});
+})();
+
+/* ── MAGNETIC HOVER (pointer devices only, passive) ── */
+if(matchMedia('(hover:hover)').matches){
+  document.querySelectorAll('.cta-btn,.lcta,.nav-launch').forEach(btn=>{
+    btn.addEventListener('mousemove',e=>{const r=btn.getBoundingClientRect();btn.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.16}px,${(e.clientY-r.top-r.height/2)*.2}px)`},{passive:true});
+    btn.addEventListener('mouseleave',()=>{btn.style.transform=''},{passive:true});
+  });
+}
+
+/* ── FAQ ── */
+function toggleFaq(q){const i=q.parentElement,o=i.classList.contains('open');document.querySelectorAll('.faq-item.open').forEach(x=>x.classList.remove('open'));if(!o)i.classList.add('open')}
+
+/* ── ONBOARDING ── */
+const OBI=['🚗','🧠','📊','📏','🚀'];let obn=0;
+const obsls=document.querySelectorAll('.ob-sl'),obds=document.querySelectorAll('.ob-pd');
+function openOB(){document.getElementById('onboarding').classList.add('vis')}
+function closeOB(){document.getElementById('onboarding').classList.remove('vis')}
+function obGo(n){
+  obsls[obn].classList.remove('on');obds[obn].classList.remove('on');
+  obn=n;obsls[obn].classList.add('on');obds[obn].classList.add('on');
+  document.getElementById('obi').textContent=OBI[obn];
+  document.getElementById('obpv').style.display=obn===0?'none':'inline-block';
+  const b=document.getElementById('obnx');
+  if(obn===obsls.length-1){b.textContent='Launch →';b.classList.add('fin');document.getElementById('obsk').style.display='none'}
+  else{b.textContent='Next →';b.classList.remove('fin');document.getElementById('obsk').style.display='inline-block'}
+}
+function obNext(){obn<obsls.length-1?obGo(obn+1):launch()}
+function obPrev(){if(obn>0)obGo(obn-1)}
+function launch(){
+  closeOB();document.getElementById('landing').style.display='none';
+  const d=document.getElementById('dashboard');d.style.display='grid';
+  setTimeout(()=>d.classList.add('vis'),50)
+}
+function goLanding(){
+  document.getElementById('dashboard').classList.remove('vis');
+  setTimeout(()=>{document.getElementById('dashboard').style.display='none';document.getElementById('landing').style.display=''},700)
+}
+
+/* ── CAMERA ── */
+let camOn=false,polling=false,localStream=null,usingLocal=false;
+function toggleCam(){camOn?stopCam():startCam()}
+async function startCam(){
+  camOn=true;polling=true;document.getElementById('ss').classList.add('h');
+  // Show calibration overlay — backend drives the progress and clears it
+  document.getElementById('cal').classList.add('on');
+  document.getElementById('calbf').style.width='0%';
+  // Try Flask /video_feed first; fall back to getUserMedia
+  const flaskWorking = await checkFlask();
+  if(flaskWorking){
+    usingLocal=false;
+    document.getElementById('vf').src='/video_feed';
+    document.getElementById('vf').style.display='';
+    document.getElementById('vf').classList.add('on');
+    document.getElementById('vf-local').style.display='none';
+    pollStatus();
+  } else {
+    usingLocal=true;
+    try{
+      localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+      const vid=document.getElementById('vf-local');
+      vid.srcObject=localStream;
+      vid.style.display='';
+      vid.classList.add('on');
+      document.getElementById('vf').style.display='none';
+    }catch(err){
+      camOn=false;polling=false;document.getElementById('ss').classList.remove('h');
+      alert('Camera access denied or not available: '+err.message);
+      return;
+    }
+  }
+  document.getElementById('lb').classList.add('vis');
+  document.getElementById('cbtn').textContent='■ Stop Camera';document.getElementById('cbtn').className='cam-btn sp';
+}
+async function checkFlask(){
+  try{const r=await fetch('/status',{signal:AbortSignal.timeout(1500)});return r.ok}catch(e){return false}
+}
+async function stopCam(){
+  camOn=false;polling=false;
+  if(usingLocal && localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+  await showSummary();
+  const vf=document.getElementById('vf');vf.src='';vf.classList.remove('on');vf.style.display='none';
+  const vfl=document.getElementById('vf-local');vfl.srcObject=null;vfl.classList.remove('on');vfl.style.display='none';
+  document.getElementById('ss').classList.remove('h');document.getElementById('lb').classList.remove('vis');
+  document.getElementById('aov').classList.remove('on');
+  document.getElementById('cbtn').textContent='▶ Start Camera';document.getElementById('cbtn').className='cam-btn st';
+  document.getElementById('sico').textContent='💤';document.getElementById('sval').textContent='STANDBY';document.getElementById('sval').className='sval sb';
+  document.getElementById('cfill').style.width='0%';document.getElementById('cpct').textContent='--%';
+  document.getElementById('mfps').textContent='-- FPS';document.getElementById('mconf').textContent='--%';
+  document.getElementById('fpstag').textContent='';
+  document.getElementById('dtimer').classList.remove('vis');document.getElementById('dtimerl').classList.remove('vis');
+  stopAlert()
+}
+
+/* ── SUMMARY ── */
+async function showSummary(){
+  try{
+    const res=await fetch('/summary'),data=await res.json();
+    document.getElementById('stot').textContent=data.total_duration;
+    document.getElementById('saw').textContent=data.awake_duration;
+    document.getElementById('sdr').textContent=data.drowsy_duration;
+    document.getElementById('sev').textContent=data.drowsy_events;
+    document.getElementById('sal').textContent=data.alert_count;
+    document.getElementById('law').textContent=data.awake_pct+'%';
+    document.getElementById('ldr').textContent=data.drowsy_pct+'%';
+    document.getElementById('dpct').textContent=data.awake_pct+'%';
+    const C=327,aw=(data.awake_pct/100)*C,dr=(data.drowsy_pct/100)*C;
+    document.getElementById('daw').setAttribute('stroke-dasharray',`${aw} ${C-aw}`);
+    document.getElementById('ddr').setAttribute('stroke-dasharray',`${dr} ${C-dr}`);
+    document.getElementById('ddr').setAttribute('stroke-dashoffset',82-aw);
+    const b=document.getElementById('rbadge'),t=document.getElementById('rtxt'),i=document.getElementById('ric');
+    b.className='rbadge';
+    if(data.rating_level===0){b.classList.add('safe');i.textContent='✅';t.textContent='SAFE DRIVER'}
+    else if(data.rating_level===1){b.classList.add('mod');i.textContent='⚠️';t.textContent='MODERATE RISK'}
+    else{b.classList.add('dan');i.textContent='🚨';t.textContent='HIGH RISK — REST NEEDED'}
+    document.getElementById('sumscr').classList.add('vis')
+  }catch(e){console.warn('Summary fetch failed:',e)}
+}
+function newSess(){document.getElementById('sumscr').classList.remove('vis')}
+
+/* ── AUDIO ── */
+const actx=new(window.AudioContext||window.webkitAudioContext)();let ali=null;
+function playBeep(){const o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);o.type='sine';o.frequency.setValueAtTime(880,actx.currentTime);g.gain.setValueAtTime(.6,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.4);o.start(actx.currentTime);o.stop(actx.currentTime+.4)}
+function startAlert(){if(!ali){playBeep();ali=setInterval(playBeep,1000)}}
+function stopAlert(){if(ali){clearInterval(ali);ali=null}}
+document.addEventListener('click',()=>actx.resume(),{once:true});
+
+/* ── POLL ── */
+async function pollStatus(){
+  if(!polling)return;
+  try{
+    const res=await fetch('/status'),data=await res.json();
+    const sv=document.getElementById('sval');
+    const calOv=document.getElementById('cal');
+
+    // ── CALIBRATION: show overlay, drive progress bar, suppress everything else ──
+    if(data.status==='CALIBRATING'){
+      sv.className='sval nf';
+      sv.textContent='CALIBRATING';
+      document.getElementById('sico').textContent='⚙️';
+      calOv.classList.add('on');
+      document.getElementById('calbf').style.width=(data.cal_pct||0)+'%';
+      // Suppress alarm, drowsy timer, confidence display
+      document.getElementById('aov').classList.remove('on');
+      stopAlert();
+      document.getElementById('dtimer').classList.remove('vis');
+      document.getElementById('dtimerl').classList.remove('vis');
+      document.getElementById('cfill').style.width='0%';
+      document.getElementById('cpct').textContent='--%';
+      document.getElementById('mconf').textContent='--%';
+      document.getElementById('mfps').textContent=data.fps+' FPS';
+      if(data.session_time){document.getElementById('msess').textContent=data.session_time;document.getElementById('sclock').textContent=data.session_time;}
+      setTimeout(pollStatus,500);
+      return;
+    }
+
+    // ── NORMAL OPERATION: hide cal overlay, show real status ──
+    calOv.classList.remove('on');
+    const pct=Math.round(data.confidence*100);
+    sv.className='sval';
+    if(data.status==='AWAKE'){sv.textContent='AWAKE';sv.classList.add('aw');document.getElementById('sico').textContent='👀'}
+    else if(data.status==='SLEEPY'){sv.textContent='SLEEPY';sv.classList.add('sl');document.getElementById('sico').textContent='😴'}
+    else{sv.textContent='SCANNING';sv.classList.add('nf');document.getElementById('sico').textContent='🔍'}
+    const cf=document.getElementById('cfill');cf.style.width=pct+'%';cf.className='cfill';
+    if(data.confidence<.4)cf.classList.add('sf');else if(data.confidence<.6)cf.classList.add('wn');else cf.classList.add('dn');
+    document.getElementById('cpct').textContent=pct+'%';
+    if(data.alert){document.getElementById('aov').classList.add('on');startAlert()}
+    else{document.getElementById('aov').classList.remove('on');stopAlert()}
+    if(data.drowsy_seconds>0){document.getElementById('dtimer').textContent=data.drowsy_seconds+'s';document.getElementById('dtimer').classList.add('vis');document.getElementById('dtimerl').classList.add('vis')}
+    else{document.getElementById('dtimer').classList.remove('vis');document.getElementById('dtimerl').classList.remove('vis')}
+    document.getElementById('mfps').textContent=data.fps+' FPS';
+    document.getElementById('mconf').textContent=pct+'%';
+    document.getElementById('msess').textContent=data.session_time;
+    document.getElementById('fpstag').textContent='FPS: '+data.fps;
+    document.getElementById('sclock').textContent=data.session_time;
+  }catch(e){console.warn('Poll failed:',e)}
+  setTimeout(pollStatus,500);
+}
+
+/* ── CLOCK ── */
+function tick(){document.getElementById('ftime').textContent=new Date().toLocaleTimeString('en-US',{hour12:false})}
+setInterval(tick,1000);tick();
+
+/* ── ABOUT ── */
+function openAb(){document.getElementById('amodal').classList.add('vis')}
+function closeAb(){document.getElementById('amodal').classList.remove('vis')}
+function closeAbOut(e){if(e.target===document.getElementById('amodal'))closeAb()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAb()});
+
+/* ── RIPPLE ── */
+function addRip(e){const el=e.currentTarget,r=el.getBoundingClientRect(),sz=Math.max(r.width,r.height);const rp=document.createElement('span');rp.className='rp';rp.style.cssText=`width:${sz}px;height:${sz}px;left:${e.clientX-r.left-sz/2}px;top:${e.clientY-r.top-sz/2}px`;el.appendChild(rp);setTimeout(()=>rp.remove(),600)}
+document.querySelectorAll('.card,.scrd,.evcd,.atp,.atc').forEach(el=>{el.classList.add('rt');el.addEventListener('click',addRip)});
+</script>
+</body>
+</html>
